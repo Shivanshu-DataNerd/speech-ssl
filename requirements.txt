@@ -1,3 +1,8 @@
 jupyter
 torch
 torchaudio
+numpy
+pandas
+matplotlib
+librosa
+soundfile
