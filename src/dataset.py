@@ -1,65 +1,81 @@
 import os
+import pandas as pd
+import numpy as np
+import librosa
 import torch
-import torchaudio
 from torch.utils.data import Dataset
 
-SUPPORTED_FORMATS = (".wav", ".flac", ".mp3", ".ogg")
 
-
-class RawAudioDataset(Dataset):
+class CommonVoiceSSLDataset(Dataset):
     """
-    Loads raw waveform audio files for SSL / ASR training.
+    Self-Supervised Learning Dataset for Speech Models
+
+    Loads raw waveform audio from CommonVoice dataset.
+
+    Returns:
+        waveform (Tensor): shape (T,)
     """
 
-    def __init__(self, root_dir, sample_rate=16000):
+    def __init__(
+        self,
+        root_dir: str,
+        sample_rate: int = 16000,
+        max_duration: float | None = None
+    ):
         """
         Args:
-            root_dir: path to dataset root
-                      e.g. data/raw/commonvoice_en_au
+            root_dir: path to dataset folder
+            sample_rate: target sample rate
+            max_duration: optional filter to remove long files
         """
 
+        self.root_dir = root_dir
         self.audio_dir = os.path.join(root_dir, "audio_files")
-        self.sample_rate = sample_rate
+        self.metadata_path = os.path.join(root_dir, "metadata.csv")
+
+        if not os.path.exists(self.metadata_path):
+            raise FileNotFoundError("metadata.csv not found")
 
         if not os.path.exists(self.audio_dir):
-            raise FileNotFoundError(
-                f"Audio directory not found: {self.audio_dir}"
-            )
+            raise FileNotFoundError("audio_files folder missing")
 
-        self.files = self._collect_files()
+        # Load metadata
+        self.df = pd.read_csv(self.metadata_path)
 
-        if len(self.files) == 0:
-            raise RuntimeError("No audio files found.")
+        # Validate required column
+        if "path" not in self.df.columns:
+            raise ValueError("metadata.csv must contain 'path' column")
 
-    def _collect_files(self):
-        paths = []
+        # Optional filtering by duration
+        if max_duration is not None and "duration_ms" in self.df.columns:
+            self.df = self.df[self.df["duration_ms"] / 1000 <= max_duration]
 
-        for f in os.listdir(self.audio_dir):
-            if f.lower().endswith(SUPPORTED_FORMATS):
-                paths.append(os.path.join(self.audio_dir, f))
-
-        return sorted(paths)
+        self.sample_rate = sample_rate
 
     def __len__(self):
-        return len(self.files)
+        return len(self.df)
 
-    def __getitem__(self, idx):
-        path = self.files[idx]
+    def _load_audio(self, path: str):
+        """
+        Load audio file safely using librosa.
+        Returns float32 waveform.
+        """
 
-        waveform, sr = torchaudio.load(path)
+        full_path = os.path.join(self.audio_dir, path)
 
-        # stereo → mono
-        if waveform.shape[0] > 1:
-            waveform = waveform.mean(dim=0, keepdim=True)
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Missing audio file: {full_path}")
 
-        waveform = waveform.squeeze(0)
+        signal, _ = librosa.load(full_path, sr=self.sample_rate)
+        return signal.astype(np.float32)
 
-        # resample if needed
-        if sr != self.sample_rate:
-            resampler = torchaudio.transforms.Resample(sr, self.sample_rate)
-            waveform = resampler(waveform)
+    def __getitem__(self, idx: int):
+        row = self.df.iloc[idx]
+        audio_path = row["path"]
 
-        # normalize
-        waveform = waveform / waveform.abs().max()
+        waveform = self._load_audio(audio_path)
+
+        # Convert to tensor
+        waveform = torch.from_numpy(waveform)
 
         return waveform
