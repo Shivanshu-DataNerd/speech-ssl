@@ -5,3 +5,4 @@ checkpoints/
 graphs/
 data/
 .ipynb_checkpoints/
+__init__.py
