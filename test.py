@@ -1,16 +1,31 @@
-import os 
-import sys
-from src.dataset import CommonVoiceSSLDataset
+import torch
 
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(PROJECT_ROOT)
-DATA_PATH = os.path.join(PROJECT_ROOT, "data", "raw", "commonvoice_en_au")
-ds = CommonVoiceSSLDataset(DATA_PATH)
-print("Dataset size:", len(ds))
+from src.cnn_encoder import CNNEncoder
+from src.transformer_encoder import TransformerEncoder
+
+# Create encoder stack
+cnn = CNNEncoder()
+transformer = TransformerEncoder()
+
+# Combine into one encoder module
+class FullEncoder(torch.nn.Module):
+    def __init__(self, cnn, transformer):
+        super().__init__()
+        self.cnn = cnn
+        self.transformer = transformer
+
+    def forward(self, x):
+        x = self.cnn(x)
+        x = self.transformer(x)
+        return x
 
 
+encoder = FullEncoder(cnn, transformer)
 
-wave, label = ds[0]
+# Test input
+dummy = torch.randn(2, 16000)
 
-print(wave.shape)
-print(label)
+# Forward pass
+features = encoder(dummy)
+
+print("Encoder output shape:", features.shape)
