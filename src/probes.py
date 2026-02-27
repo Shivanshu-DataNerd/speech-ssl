@@ -32,3 +32,6 @@ class DurationProbe(nn.Module):
         logits = self.classifier(features)
 
         return logits
+
+
+        
