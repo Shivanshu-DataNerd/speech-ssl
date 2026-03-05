@@ -68,5 +68,15 @@ class PositionalEncoding(nn.Module):
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
-    def forward(self, x):
-        return x + self.pe[:, :x.size(1)]
+    def forward(self, x, return_all_layers=False):
+        layer_outputs = []
+
+        for layer in self.layers:
+            x = layer(x)
+            if return_all_layers:
+                layer_outputs.append(x)
+
+        if return_all_layers:
+            return layer_outputs  # list of (B, T, C)
+
+        return x

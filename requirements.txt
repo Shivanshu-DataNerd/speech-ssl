@@ -7,3 +7,7 @@ matplotlib
 librosa
 soundfile
 tqdm
+scikit-learn
+umap-learn
+matplotlib
+seaborn
