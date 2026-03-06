@@ -1,0 +1,4 @@
+probe:
+  task: duration_classification
+  num_classes: 3
+  epochs: 5
