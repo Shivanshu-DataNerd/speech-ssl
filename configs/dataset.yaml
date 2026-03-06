@@ -1,0 +1,5 @@
+dataset:
+  name: commonvoice_en_au
+  path: data/raw/commonvoice_en_au
+  sample_rate: 16000
+  max_duration: 10
